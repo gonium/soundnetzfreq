@@ -1,3 +1,4 @@
+print "Importing libraries"
 import scipy.signal as ss
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,15 +22,16 @@ def create_signal(F_base):
   A_noise1 = 0.25
   F_noise2 = 1500.0
   A_noise2 = 0.25
- # A_rand = 0.01
+  A_static = 0.01
 
-  noise_rand = np.arange(-1,1,nsamples)
+  
   t = np.arange(nsamples) / sample_rate
-  signal = A_base * np.sin(2*np.pi*F_base*t) + \
+  truth = A_base * np.sin(2*np.pi*F_base*t)
+  signal = truth + \
     A_noise1*np.sin(2*np.pi*F_noise1*t) + \
     A_noise2*np.sin(2*np.pi*F_noise2*t)# + \
     #A_rand * noise_rand
-  return (t, signal)
+  return (t, truth, signal)
 
 #------------------------------------------------
 # 2. Create a FIR filter and apply it to signal.
@@ -66,37 +68,58 @@ def calc_frequency(signal):
 #------------------------------------------------
 # Plot the original and filtered signals.
 #------------------------------------------------
-def plot_signalquality(t, signal, filtered, freq):
+def plot_signalquality(t, truth, signal, filtered, freq):
   # The first N-1 samples are "corrupted" by the initial conditions
   warmup = numtaps - 1
   # The phase delay of the filtered signal
   delay = (warmup / 2) / sample_rate
-  plt.figure(1)
+  # The delay is based on the time t. We also need the number of 
+  # delay samples in order to calculate things.
+  sample_shift = warmup/2
+  plt.figure(1, figsize=(12,9))
   plt.clf()
+  plt.subplots_adjust(hspace=.7)
+  plt.subplot(3,1,1)
+  plt.title("Vergleich vor/nach Filter (%.3f Hz)" % freq)
   plt.plot(t, signal, 'b-', label="Input")
   # Plot the filtered signal, shifted to compensate for the phase delay
   plt.plot(t-delay, filtered, 'r-', label="Filtered", linewidth=2)
   plt.xlim([0.0, 0.06])
   plt.legend(loc="best")
-  plt.title("Vergleich mit/ohne Filter (%.3f Hz)" % freq)
+  plt.subplot(3,1,2)
+  plt.title("Vergleich Wahrheit/Filter (%.3f Hz)" % freq)
+  plt.plot(t, truth, 'b-', label="Wahrheit")
+  # Plot the filtered signal, shifted to compensate for the phase delay
+  plt.plot(t-delay, filtered, 'r-', label="Filtered", linewidth=1)
+  plt.xlim([0.0, 0.06])
+  plt.legend(loc="best")
+  plt.subplot(3,1,3)
+  plt.title("Abweichung (%.3f Hz)" % freq)
+  deviation = []
+  for i in range(int(truth.size-sample_shift)):
+    deviation.append(truth[i] - filtered[i+sample_shift])
+  # Plot the filtered signal, shifted to compensate for the phase delay
+  plt.plot(t[:-sample_shift], deviation, 'r-', label="Abweichung", linewidth=2)
+  plt.xlim([0.0, 0.06])
   plt.savefig("images/signalquality-%.3f.png" % freq)
 
 
 #------------------------------------------------
 # Main loop.
 #------------------------------------------------
-frequencies = np.arange(49.7, 50.3, 0.001)
+print "Starting calculations"
+frequencies = np.arange(49.7, 50.3, 0.1)
 targetfrequencies = []
 measuredfrequencies = []
 for idx, target in enumerate(frequencies):
-  t, signal = create_signal(target)
+  t, truth, signal = create_signal(target)
   filtered = fir_filter(signal)
   freq = calc_frequency(filtered)
   targetfrequencies.append(target)
   measuredfrequencies.append(freq)
   print "Target frequency: %.3f, measured frequency: %.3f" % (target,
       freq)
-  #plot_signalquality(t, signal, filtered, target)
+  plot_signalquality(t, truth, signal, filtered, target)
 
 #------------------------------------------------
 # plot overall stats.
