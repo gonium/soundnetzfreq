@@ -16,7 +16,7 @@ nsamples = 9600
 # 1. Create noisy input signal
 #------------------------------------------------
 def create_signal(F_base, static):
-  A_base = 2.0
+  A_base = 1.0
   F_noise1 = 500.0
   A_noise1 = 0.1
   F_noise2 = 1500.0
@@ -55,7 +55,7 @@ def fir_filter(signal, fir_coeff):
 #------------------------------------------------
 # Calculate frequency based on zero crossings
 #------------------------------------------------
-def calc_frequency(signal):
+def calc_freq_zerocrossing(signal):
   zero_crossing = 0.0
   # Find all indices right before a rising-edge zero crossing
   indices = np.where((signal[1:] >= zero_crossing) & \
@@ -68,6 +68,43 @@ def calc_frequency(signal):
   #print "Mean number of samples between zero crossings: %.3f" % num_zerocrossing_samples
   return freq
 
+
+#------------------------------------------------
+# From https://github.com/endolith/waveform-analyzer/blob/master/common.py
+# Quadratic interpolation for estimating the true position of an
+# inter-sample maximum when nearby samples are known.
+#------------------------------------------------
+def parabolic(f, x):
+  """Quadratic interpolation for estimating the true position of an
+  inter-sample maximum when nearby samples are known.
+  f is a vector and x is an index for that vector.
+  Returns (vx, vy), the coordinates of the vertex of a parabola that goes
+  through point x and its two neighbors.
+  Example:
+  Defining a vector f with a local maximum at index 3 (= 6), find local
+  maximum if points 2, 3, and 4 actually defined a parabola.
+  In [3]: f = [2, 3, 1, 6, 4, 2, 3, 1]
+  In [4]: parabolic(f, argmax(f))
+  Out[4]: (3.2142857142857144, 6.1607142857142856)
+  """
+  xv = 1/2. * (f[x-1] - f[x+1]) / (f[x-1] - 2 * f[x] + f[x+1]) + x
+  yv = f[x] - 1/4. * (f[x-1] - f[x+1]) * (xv - x)
+  return (xv, yv)
+
+#------------------------------------------------
+# Calculate frequency based on fft - see
+# https://github.com/endolith/waveform-analyzer/blob/master/frequency_estimator.py
+#------------------------------------------------
+def calc_freq_fft(signal):
+  N = len(signal)
+  # Compute Fourier transform of windowed signal
+  windowed = signal * ss.kaiser(N, 100)
+  f = np.fft.rfft(windowed)
+  # Find the peak and interpolate to get a more accurate peak
+  i_peak = np.argmax(abs(f)) # Just use this value for less-accurate result
+  i_interp = parabolic(np.log(abs(f)), i_peak)[0]
+  # Convert to equivalent frequency
+  return sample_rate * i_interp / N # Hz
 
 #------------------------------------------------
 # Plot the original and filtered signals.
@@ -130,7 +167,8 @@ fir_coeff = calc_fir_coeff(cutoff_freq_hz, numtaps, sample_rate)
 for idx, target in enumerate(frequencies):
   t, truth, signal = create_signal(target, static)
   filtered = fir_filter(signal, fir_coeff)
-  freq = calc_frequency(filtered)
+  #freq = calc_freq_zerocrossing(filtered)
+  freq = calc_freq_fft(filtered)
   targetfrequencies.append(target)
   measuredfrequencies.append(freq)
   print "Deviation: %.2f mHz, signal mean: %.5f - target frequency: %.3f, measured frequency: %.3f" % ((target - freq)*1000, np.mean(signal), target, freq)
