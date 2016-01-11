@@ -5,6 +5,8 @@ https://gist.github.com/endolith/255291
 Korrigierter Code:
 https://github.com/endolith/waveform-analyzer/blob/master/frequency_estimator.py
 
+http://dsp.stackexchange.com/questions/17871/how-to-calculate-signal-to-noise-ratio
+
 https://developer.mbed.org/cookbook/FIR-Filter
 Python FIR Filter Design
 
