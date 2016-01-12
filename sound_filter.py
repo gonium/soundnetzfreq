@@ -2,6 +2,7 @@ print "Importing libraries"
 import scipy.signal as ss
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 
@@ -164,51 +165,49 @@ def plot_signalquality(t, truth, signal, filtered, snr, freq):
 # Main loop.
 #------------------------------------------------
 print "Starting calculations"
-# create static around 0.0
-static = np.random.random_sample(nsamples)-0.5
+# creates uniform static around 0.0
+# static = np.random.random_sample(nsamples)-0.5
+# Create gaussian noise around 0.0
+static = np.random.normal(0.0, 1.0, nsamples)
 frequencies = np.arange(49.7, 50.3, 0.05)
-snrs = np.arange(3.0, 5.0, 1)
+snrs = np.arange(1.0, 3.0, 0.5)
 numtaps = 39
 cutoff_freq_hz = 52.0
 fir_coeff = calc_fir_coeff(cutoff_freq_hz, numtaps, sample_rate)
+df = pd.DataFrame()
 for idx, snr in enumerate(snrs):
   print "### SNR: %.1f" % snr
-  targetfrequencies = []
-  # TODO: store the measurements in a dataframe.
-  measuredfrequencies = []
   for jdx, target in enumerate(frequencies):
     t, truth, signal = create_signal(target, static, 5.0)
     filtered = fir_filter(signal, fir_coeff)
     #freq = calc_freq_zerocrossing(filtered)
     freq = calc_freq_fft(filtered)
-    targetfrequencies.append(target)
-    measuredfrequencies.append(freq)
+    deviation = (target - freq)*1000
+    data = pd.DataFrame({"SNR": snr, "Deviation": deviation, "Signal":
+      target, "Measured": freq, "Mean": np.mean(signal)}, index=[0])
+    df = df.append(data)
     print "Deviation: %.2f mHz, signal mean: %.5f - target: %.3f, measured: %.3f" % ((target - freq)*1000, np.mean(signal), target, freq)
-    plot_signalquality(t, truth, signal, filtered, snr, target)
+    #plot_signalquality(t, truth, signal, filtered, snr, target)
+
+print df.describe()
 
 #------------------------------------------------
 # plot overall stats.
 #------------------------------------------------
-xlims = (np.min(targetfrequencies), np.max(targetfrequencies))
-ylims = (np.min(measuredfrequencies), np.max(measuredfrequencies))
-plt.figure(2)
-plt.clf()
-plt.plot(targetfrequencies, measuredfrequencies, 'k.')
-plt.title("Frequenz: Wahrheit vs. Messung")
-plt.xlabel("Wahre Frequenz [Hz]")
-plt.ylabel("Gemessene Frequenz[Hz]")
-plt.xlim(xlims)
-plt.ylim(ylims)
-plt.savefig("images/target_vs_measured-absolute.png")
+xlims = (np.min(df.Signal), np.max(df.Signal))
+ylims = (np.min(df.Measured), np.max(df.Measured))
 
 plt.figure(2)
 plt.clf()
-delta = np.asarray(measuredfrequencies) - np.asarray(targetfrequencies)
-plt.plot(targetfrequencies, (delta), 'k.')
+for idx, snr in enumerate(snrs):
+  snr_df = df[df.SNR == snr]
+  delta = snr_df.Measured - snr_df.Signal
+  plt.plot(snr_df.Signal, delta, marker=".", label="SNR %.1f" % snr)
 plt.title("Abweichung (Sampling %d Hz, FIR w/ %d taps)" % (sample_rate,
   numtaps))
 plt.xlabel("Wahre Frequenz [Hz]")
 plt.ylabel("Abweichung gemessene Frequenz [Hz]")
 plt.xlim(xlims)
+plt.legend(loc="best")
 plt.savefig("images/target_vs_measured-relative.png")
 
