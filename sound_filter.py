@@ -170,7 +170,7 @@ print "Starting calculations"
 # Create gaussian noise around 0.0
 static = np.random.normal(0.0, 1.0, nsamples)
 frequencies = np.arange(49.7, 50.3, 0.05)
-snrs = np.arange(1.0, 3.0, 0.5)
+snrs = np.arange(1.0, 6.0, 0.5)
 numtaps = 39
 cutoff_freq_hz = 52.0
 fir_coeff = calc_fir_coeff(cutoff_freq_hz, numtaps, sample_rate)
