@@ -5,19 +5,17 @@ https://gist.github.com/endolith/255291
 Korrigierter Code:
 https://github.com/endolith/waveform-analyzer/blob/master/frequency_estimator.py
 
-http://dsp.stackexchange.com/questions/17871/how-to-calculate-signal-to-noise-ratio
-
 https://developer.mbed.org/cookbook/FIR-Filter
 Python FIR Filter Design
-
-http://www.instructables.com/id/Reliable-Frequency-Detection-Using-DSP-Techniques/step2/Autocorrelation/
-Frequency detection by autocorrelation
 
 https://people.csail.mit.edu/hubert/pyaudio/
 -> da ist auch ein beispiel, wie man plattformunabhängig sound aufnimmt
 Audiodevices enumerieren:
 https://gist.github.com/mansam/9332445
 
+Installation:
+    brew install portaudio
+    pip install pyaudio
 
 Anaconda auf RPi:
 https://www.continuum.io/blog/developer/anaconda-raspberry-pi
