@@ -15,6 +15,9 @@ Frequency detection by autocorrelation
 
 https://people.csail.mit.edu/hubert/pyaudio/
 -> da ist auch ein beispiel, wie man plattformunabhängig sound aufnimmt
+Audiodevices enumerieren:
+https://gist.github.com/mansam/9332445
+
 
 Anaconda auf RPi:
 https://www.continuum.io/blog/developer/anaconda-raspberry-pi
