@@ -14,8 +14,8 @@ Audiodevices enumerieren:
 https://gist.github.com/mansam/9332445
 
 Installation:
-    brew install portaudio
-    pip install pyaudio
+    brew install portaudio / apt-get install portaudio19-dev
+    pip install -r requirements.txt
 
 Anaconda auf RPi:
 https://www.continuum.io/blog/developer/anaconda-raspberry-pi
