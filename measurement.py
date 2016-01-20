@@ -6,7 +6,7 @@ import argparse
 import sys
 import threading
 
-CHUNK = 8*512    # 512 16bit values
+CHUNK = 8*512
 CHANNELS = 1   # mono
 RATE = 44100
 
