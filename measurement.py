@@ -5,10 +5,10 @@ import time
 import argparse
 import sys
 
-CHUNK = 512    # 512 16bit values
+CHUNK = 8*512    # 512 16bit values
 WIDTH = 2      # 2 byte values - 16 bit resolution
 CHANNELS = 1   # mono
-RATE = 9600
+RATE = 44100
 
 class Recorder(object):
   def __enter__(self):
@@ -30,7 +30,7 @@ class Recorder(object):
     devinfo = self.p.get_device_info_by_index(device_index)
     print "Selected device is ", devinfo.get('name')
     #print devinfo
-    if self.p.is_format_supported(9600.0,  # Sample rate
+    if self.p.is_format_supported(RATE,  # Sample rate
                              input_device=devinfo["index"],
                              input_channels=devinfo['maxInputChannels'],
                              input_format=pyaudio.paInt16):
