@@ -4,14 +4,17 @@ import pyaudio
 import time
 import argparse
 import sys
+import threading
 
 CHUNK = 8*512    # 512 16bit values
 CHANNELS = 1   # mono
 RATE = 44100
 
-class Recorder(object):
+class Recorder():
+ 
   def __enter__(self):
     self.p = pyaudio.PyAudio()
+    self.terminate = False
     return self
 
   def __exit__(self, exc_type, exc_value, traceback):
@@ -39,16 +42,18 @@ class Recorder(object):
 
   def start(self, device_index):
     def recording_callback(in_data, frame_count, time_info, status):
-        samples = np.fromstring(in_data, dtype=np.float32)
-        print "%d - %s" % (len(samples), np.array_str(samples))
-        # TODO: Forward the samples into the queue and request next one
-        #return (in_data, pyaudio.paContinue)
-        # quick and dirty debugging: plot samples
-        plt.figure(1, figsize=(15,9))
-        plt.clf()
-        plt.plot(np.arange(len(samples)), samples)
-        plt.savefig("sample-waveform.png")
+      samples = np.fromstring(in_data, dtype=np.float32)
+      print "%d - %s" % (len(samples), np.array_str(samples))
+      # quick and dirty debugging: plot samples
+      plt.figure(1, figsize=(15,9))
+      plt.clf()
+      plt.plot(np.arange(len(samples)), samples)
+      plt.savefig("sample-waveform.png")
+      if self.terminate == True:
         return (in_data, pyaudio.paComplete)
+      else:
+        return (in_data, pyaudio.paContinue)
+
     self.stream = self.p.open(
               format = pyaudio.paFloat32,
               channels=CHANNELS,
@@ -62,6 +67,9 @@ class Recorder(object):
         time.sleep(0.1)
     self.stream.stop_stream()
     self.stream.close()
+
+  def stop(self):
+    self.terminate = True
 
 if __name__ == "__main__":
   cmd_parser = argparse.ArgumentParser()
@@ -83,5 +91,6 @@ if __name__ == "__main__":
       device_id=int(args.device)
       print "Using input device %d" % device_id
       rec.check_format(device_id)
+      rec.stop()
       rec.start(device_id)
 
