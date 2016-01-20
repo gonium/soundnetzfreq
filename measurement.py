@@ -6,7 +6,6 @@ import argparse
 import sys
 
 CHUNK = 8*512    # 512 16bit values
-WIDTH = 2      # 2 byte values - 16 bit resolution
 CHANNELS = 1   # mono
 RATE = 44100
 
@@ -33,14 +32,14 @@ class Recorder(object):
     if self.p.is_format_supported(RATE,  # Sample rate
                              input_device=devinfo["index"],
                              input_channels=devinfo['maxInputChannels'],
-                             input_format=pyaudio.paInt16):
+                             input_format=pyaudio.paFloat32):
       print 'Sound device supports default mode'
     else:
       raise ValueError('Sound device does not support default mode')
 
   def start(self, device_index):
     def recording_callback(in_data, frame_count, time_info, status):
-        samples = np.fromstring(in_data, dtype=np.int16)
+        samples = np.fromstring(in_data, dtype=np.float32)
         print "%d - %s" % (len(samples), np.array_str(samples))
         # TODO: Forward the samples into the queue and request next one
         #return (in_data, pyaudio.paContinue)
@@ -50,7 +49,8 @@ class Recorder(object):
         plt.plot(np.arange(len(samples)), samples)
         plt.savefig("sample-waveform.png")
         return (in_data, pyaudio.paComplete)
-    self.stream = self.p.open(format=self.p.get_format_from_width(WIDTH),
+    self.stream = self.p.open(
+              format = pyaudio.paFloat32,
               channels=CHANNELS,
               input_device_index=device_index,
               rate=RATE,
