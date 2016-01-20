@@ -2,70 +2,86 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pyaudio
 import time
+import argparse
+import sys
 
-p = pyaudio.PyAudio()
-info = p.get_host_api_info_by_index(0)
-numdevices = info.get('deviceCount')
-#for each audio device, determine if is an input or an output and add it to the appropriate list and dictionary
-for i in range (0,numdevices):
-  if p.get_device_info_by_host_api_device_index(0,i).get('maxInputChannels')>0:
-    print "Input Device id ", i, " - ", p.get_device_info_by_host_api_device_index(0,i).get('name')
-
-  if p.get_device_info_by_host_api_device_index(0,i).get('maxOutputChannels')>0:
-    print "Output Device id ", i, " - ", p.get_device_info_by_host_api_device_index(0,i).get('name')
-
-devinfo = p.get_device_info_by_index(4)
-print "Selected device is ", devinfo.get('name')
-print devinfo
-if p.is_format_supported(9600.0,  # Sample rate
-                         input_device=devinfo["index"],
-                         input_channels=devinfo['maxInputChannels'],
-                         input_format=pyaudio.paInt16):
-  print 'Yay!'
-
-
-#####################################
-
-
-CHUNK = 512
-WIDTH = 2
-CHANNELS = 2
+CHUNK = 512    # 512 16bit values
+WIDTH = 2      # 2 byte values - 16 bit resolution
+CHANNELS = 1   # mono
 RATE = 9600
 
-def callback(in_data, frame_count, time_info, status):
-  samples = np.fromstring(in_data, dtype=np.int16)
-  samples = np.reshape(samples, (CHUNK, WIDTH))
-  left = samples[:, 0]
-  right = samples[:, 1]
-  print "%d - %s" % (len(right), np.array_str(right))
-  #return (in_data, pyaudio.paContinue)
+class Recorder(object):
+  def __enter__(self):
+    self.p = pyaudio.PyAudio()
+    return self
 
-  plt.figure(1, figsize=(15,9))
-  plt.clf()
-  plt.plot(np.arange(len(right)), right)
-  plt.savefig("sample-waveform.pdf")
-  return (in_data, pyaudio.paComplete)
+  def __exit__(self, exc_type, exc_value, traceback):
+    self.p.terminate()
 
+  def print_devicelist(self):
+    info = self.p.get_host_api_info_by_index(0)
+    numdevices = info.get('deviceCount')
+    #for each audio device, determine if is an input or an output and add it to the appropriate list and dictionary
+    for i in range (0,numdevices):
+      if self.p.get_device_info_by_host_api_device_index(0,i).get('maxInputChannels')>0:
+          print "Input Device id ", i, " - ", self.p.get_device_info_by_host_api_device_index(0,i).get('name')
 
+  def check_format(self, device_index):
+    devinfo = self.p.get_device_info_by_index(device_index)
+    print "Selected device is ", devinfo.get('name')
+    #print devinfo
+    if self.p.is_format_supported(9600.0,  # Sample rate
+                             input_device=devinfo["index"],
+                             input_channels=devinfo['maxInputChannels'],
+                             input_format=pyaudio.paInt16):
+      print 'Sound device supports default mode'
+    else:
+      raise ValueError('Sound device does not support default mode')
 
-stream = p.open(format=p.get_format_from_width(WIDTH),
-                channels=CHANNELS,
-                input_device_index=devinfo["index"],
-                rate=RATE,
-                input=True,
-                stream_callback=callback,
-                frames_per_buffer=CHUNK)
+  def start(self, device_index):
+    def recording_callback(in_data, frame_count, time_info, status):
+        samples = np.fromstring(in_data, dtype=np.int16)
+        print "%d - %s" % (len(samples), np.array_str(samples))
+        # TODO: Forward the samples into the queue and request next one
+        #return (in_data, pyaudio.paContinue)
+        # quick and dirty debugging: plot samples
+        plt.figure(1, figsize=(15,9))
+        plt.clf()
+        plt.plot(np.arange(len(samples)), samples)
+        plt.savefig("sample-waveform.png")
+        return (in_data, pyaudio.paComplete)
+    self.stream = self.p.open(format=self.p.get_format_from_width(WIDTH),
+              channels=CHANNELS,
+              input_device_index=device_index,
+              rate=RATE,
+              input=True,
+              stream_callback=recording_callback,
+              frames_per_buffer=CHUNK)
+    self.stream.start_stream()
+    while self.stream.is_active():
+        time.sleep(0.1)
+    self.stream.stop_stream()
+    self.stream.close()
 
-print("* recording")
+if __name__ == "__main__":
+  cmd_parser = argparse.ArgumentParser()
+  cmd_parser.add_argument("device", help="sound device id to use for \
+      sampling", nargs='?')
+  cmd_parser.add_argument("--list", help="prints a list of audio devices \
+    on this system", action='store_true', default=False)
+  args = cmd_parser.parse_args()
 
-stream.start_stream()
+  with Recorder() as rec:
+    if args.list:
+      print "Searching for audio input devices"
+      rec.print_devicelist()
+      sys.exit(1)
+    if args.device == None:
+      print "Please provide the ID of the input device"
+      sys.exit(2)
+    else:
+      device_id=int(args.device)
+      print "Using input device %d" % device_id
+      rec.check_format(device_id)
+      rec.start(device_id)
 
-while stream.is_active():
-    time.sleep(0.1)
-
-print("* done")
-
-stream.stop_stream()
-stream.close()
-
-p.terminate()
