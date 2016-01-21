@@ -168,27 +168,29 @@ print "Starting calculations"
 # creates uniform static around 0.0
 # static = np.random.random_sample(nsamples)-0.5
 # Create gaussian noise around 0.0
-static = np.random.normal(0.0, 1.0, nsamples)
+statics = [np.random.normal(0.0, 1.0, nsamples) for x in np.arange(0,
+  100)]
 frequencies = np.arange(49.7, 50.3, 0.05)
-snrs = np.arange(2.0, 6.0, 0.5)
+snrs = np.arange(3.0, 8.0, 1)
 numtaps = 39
 cutoff_freq_hz = 52.0
 fir_coeff = calc_fir_coeff(cutoff_freq_hz, numtaps, sample_rate)
 df = pd.DataFrame()
-for idx, snr in enumerate(snrs):
-  print "### SNR: %.1f" % snr
-  for jdx, target in enumerate(frequencies):
-    t, truth, signal = create_signal(target, static, snr)
-    filtered = fir_filter(signal, fir_coeff)
-    #freq = calc_freq_zerocrossing(filtered)
-    freq = calc_freq_fft(filtered)
-    deviation = (target - freq)*1000
-    data = pd.DataFrame({"SNR": snr, "Deviation": deviation, "Signal":
-      target, "Measured": freq, "Mean": np.mean(signal)}, index=[0])
-    df = df.append(data)
-    print "Deviation: %.2f mHz, signal mean: %.5f - target: %.3f, measured: %.3f" % ((target - freq)*1000, np.mean(signal), target, freq)
-    #plot_signalquality(t, truth, signal, filtered, snr, target)
-
+for static_idx, static in enumerate(statics):
+  for idx, snr in enumerate(snrs):
+    print "### Static %d, SNR: %.1f" % (static_idx, snr)
+    for jdx, target in enumerate(frequencies):
+      t, truth, signal = create_signal(target, static, snr)
+      filtered = fir_filter(signal, fir_coeff)
+      #freq = calc_freq_zerocrossing(filtered)
+      freq = calc_freq_fft(filtered)
+      deviation = (target - freq)*1000
+      data = pd.DataFrame({"static": static_idx, "SNR": snr, "Deviation": deviation,
+        "Signal": target, "Measured": freq, "Mean": np.mean(signal)}, index=[0])
+      df = df.append(data)
+      print "Deviation: %.2f mHz, signal mean: %.5f - target: %.3f, measured: %.3f" % ((target - freq)*1000, np.mean(signal), target, freq)
+      #plot_signalquality(t, truth, signal, filtered, snr, target)
+df['delta'] = df.Measured - df.Signal
 print df.describe()
 
 #------------------------------------------------
@@ -200,14 +202,40 @@ ylims = (np.min(df.Measured), np.max(df.Measured))
 plt.figure(2)
 plt.clf()
 for idx, snr in enumerate(snrs):
-  snr_df = df[df.SNR == snr]
-  delta = snr_df.Measured - snr_df.Signal
-  plt.plot(snr_df.Signal, delta, marker=".", label="SNR %.1f" % snr)
-plt.title("Abweichung (Sampling %d Hz, FIR w/ %d taps)" % (sample_rate,
+  snr_df = df[(df.SNR == snr) & (df.static==0)]
+  plt.plot(snr_df.Signal, snr_df.delta, marker=".", label="SNR %.1f" % snr)
+plt.title("Einfluss SNR (Sampling %d Hz, FIR w/ %d taps)" % (sample_rate,
   numtaps))
 plt.xlabel("Wahre Frequenz [Hz]")
 plt.ylabel("Abweichung gemessene Frequenz [Hz]")
 plt.xlim(xlims)
 plt.legend(loc="best")
-plt.savefig("images/target_vs_measured-relative.png")
+plt.savefig("images/target_vs_measured-relative-snr.png")
+
+plt.clf()
+static_deltas = []
+static_labels = []
+for idx, signal in enumerate(frequencies):
+  signal_df = df[(df.Signal==signal) & (df.SNR == np.max(df.SNR))]
+  static_deltas.append([signal_df.delta])
+  static_labels.append("%.2f" % signal)
+plt.boxplot(static_deltas, labels=static_labels)
+plt.title("Einfluss Noise (Sampling %d Hz, FIR w/ %d taps, SNR %.1f)" % (sample_rate, numtaps, np.max(df.SNR)))
+plt.xlabel("Wahre Frequenz [Hz]")
+plt.ylabel("Abweichung gemessene Frequenz [Hz]")
+plt.savefig("images/target_vs_measured-relative-snr-high.png")
+
+plt.clf()
+static_deltas = []
+static_labels = []
+for idx, signal in enumerate(frequencies):
+  signal_df = df[(df.Signal==signal) & (df.SNR == np.min(df.SNR))]
+  static_deltas.append([signal_df.delta])
+  static_labels.append("%.2f" % signal)
+plt.boxplot(static_deltas, labels=static_labels)
+plt.title("Einfluss Noise (Sampling %d Hz, FIR w/ %d taps, SNR %.1f)" %
+    (sample_rate, numtaps, np.min(df.SNR)))
+plt.xlabel("Wahre Frequenz [Hz]")
+plt.ylabel("Abweichung gemessene Frequenz [Hz]")
+plt.savefig("images/target_vs_measured-relative-snr-low.png")
 
