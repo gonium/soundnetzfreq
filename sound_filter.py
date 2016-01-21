@@ -10,8 +10,8 @@ plt.style.use('ggplot')
 # 0. Global definitions
 #------------------------------------------------
 # Use sample rate of 9,6 kHz, "record" for one second
-sample_rate = 9600.0
-nsamples = 9600
+sample_rate = 44100.0
+nsamples = 44100
 
 #------------------------------------------------
 # 1. Create noisy input signal
@@ -170,7 +170,7 @@ print "Starting calculations"
 # Create gaussian noise around 0.0
 static = np.random.normal(0.0, 1.0, nsamples)
 frequencies = np.arange(49.7, 50.3, 0.05)
-snrs = np.arange(1.0, 6.0, 0.5)
+snrs = np.arange(2.0, 6.0, 0.5)
 numtaps = 39
 cutoff_freq_hz = 52.0
 fir_coeff = calc_fir_coeff(cutoff_freq_hz, numtaps, sample_rate)
@@ -178,7 +178,7 @@ df = pd.DataFrame()
 for idx, snr in enumerate(snrs):
   print "### SNR: %.1f" % snr
   for jdx, target in enumerate(frequencies):
-    t, truth, signal = create_signal(target, static, 5.0)
+    t, truth, signal = create_signal(target, static, snr)
     filtered = fir_filter(signal, fir_coeff)
     #freq = calc_freq_zerocrossing(filtered)
     freq = calc_freq_fft(filtered)
