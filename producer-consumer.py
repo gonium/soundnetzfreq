@@ -13,40 +13,41 @@ class Log():
 
 
 class Producer(Thread):
-  def __init__(self, q, stopSignal, log):
+  def __init__(self, q, stop_signal, log):
     Thread.__init__(self)
     self.q = q
-    self.stopSignal = stopSignal
+    self.stop_signal = stop_signal
     self.l=log
   def run(self):
-    print self.stopSignal
-    while (not self.stopSignal.is_set()):
+    while (not self.stop_signal.is_set()):
       r = random.randint(1,100)
-      self.l.log("Producer writes " + str(r) + " from " + self.getName())
+      self.l.log("Producer writes " + str(r))
       self.q.put(r);
       time.sleep(1)
-    print "terminating producer"
+    self.l.log("terminating producer")
 
 class Consumer(Thread):
-  def __init__(self, q, stopSignal, log):
+  def __init__(self, q, stop_signal, log):
     Thread.__init__(self)
     self.q = q
-    self.stopSignal = stopSignal
+    self.stop_signal = stop_signal
     self.l=log
   def run(self):
-    print self.stopSignal
-    while (not self.stopSignal.is_set()):
+    while (not self.stop_signal.is_set()):
       try:
-        r = self.q.get(2);
-        self.l.log( "Consumer consumes " + str(r) + " from " + self.getName())
+        # block for 0.5 seconds. If no message arrives,
+        # unblock. This will raise a Queue.Empty exception.
+        # This keeps the loop responsive so that the thread 
+        # can be canceled. See http://stackoverflow.com/a/19206305
+        r = self.q.get(True, 0.5);
+        self.l.log( "Consumer consumes " + str(r))
       except Queue.Empty:
         pass # do nothing
-    print "terminating consumer"
+    self.l.log("terminating consumer")
 
 
 def mk_signal_handler(stop_signal):
   def signal_handler(signal, frame):
-    print stop_signal
     stop_signal.set()
     print "Terminating threads:"
     time.sleep(1)
@@ -56,12 +57,12 @@ def mk_signal_handler(stop_signal):
 
 l=Log()
 q = Queue.Queue()
-stopSignal = Event()
-signal.signal(signal.SIGINT, mk_signal_handler(stopSignal))
-p=Producer(q, stopSignal, l)
+stop_signal = Event()
+signal.signal(signal.SIGINT, mk_signal_handler(stop_signal))
+p=Producer(q, stop_signal, l)
 p.start()
 time.sleep(1)
-c=Consumer(q, stopSignal, l)
+c=Consumer(q, stop_signal, l)
 c.start()
 
 # wait until a signal is received
